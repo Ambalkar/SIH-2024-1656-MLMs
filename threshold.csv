@@ -1,0 +1,7 @@
+Parameter,Min,Max
+salinity,25,38
+ph,7.4,8.3
+dissolvedoxygen,1.5,5
+dissolvedmethane,0.0001,50
+cdom,0.0001,10
+temperature,23,32

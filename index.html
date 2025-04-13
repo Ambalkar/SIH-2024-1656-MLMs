@@ -1,0 +1,72 @@
+# Updated code for `index.html`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Quality Prediction</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-6">
+        <h1 class="text-2xl font-bold text-center mb-4">Water Quality Prediction</h1>
+        <form id="predictionForm" class="bg-white p-4 rounded shadow">
+            <div class="mb-4">
+                <label for="date" class="block text-sm font-medium text-gray-700">Prediction Date</label>
+                <input type="date" id="date" name="date" class="mt-1 block w-full p-2 border border-gray-300 rounded">
+            </div>
+            <div class="mb-4">
+                <label for="time" class="block text-sm font-medium text-gray-700">Prediction Time</label>
+                <input type="time" id="time" name="time" class="mt-1 block w-full p-2 border border-gray-300 rounded">
+            </div>
+            <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded">Predict</button>
+        </form>
+        <div id="result" class="mt-6 hidden">
+            <h2 class="text-lg font-bold mb-2">Prediction Result:</h2>
+            <canvas id="resultChart"></canvas>
+        </div>
+    </div>
+    <script>
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const date = document.getElementById('date').value;
+            const time = document.getElementById('time').value;
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date, time })
+                });
+                if (!response.ok) throw new Error('Failed to fetch prediction.');
+
+                const data = await response.json();
+                document.getElementById('result').classList.remove('hidden');
+                const ctx = document.getElementById('resultChart').getContext('2d');
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(data.probabilities),
+                        datasets: [{
+                            label: 'Prediction Probabilities',
+                            data: Object.values(data.probabilities),
+                            backgroundColor: ['#4CAF50', '#FFC107', '#FF5722', '#2196F3']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+    </script>
+</body>
+</html>
