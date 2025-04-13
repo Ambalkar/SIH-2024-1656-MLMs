@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Prediction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .weather-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        .weather-container h1 {
+            margin-bottom: 20px;
+        }
+        .weather-container input {
+            padding: 10px;
+            margin-bottom: 20px;
+            width: 80%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .weather-container button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #007BFF;
+            color: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .weather-container button:hover {
+            background-color: #0056b3;
+        }
+        .weather-container .weather-info {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .error {
+            color: red;
+        }
+        .safety-level {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .safe { color: green; }
+        .moderate { color: orange; }
+        .caution { color: darkorange; }
+        .unsafe { color: red; }
+    </style>
+</head>
+<body>
+    <div class="weather-container">
+        <h1>Weather Prediction</h1>
+        <input type="text" id="city" placeholder="Enter city name">
+        <button onclick="getWeather()">Get Weather</button>
+        <div class="weather-info" id="weather-info"></div>
+    </div>
+
+    <script>
+        async function getWeather() {
+            const weatherInfo = document.getElementById('weather-info');
+            weatherInfo.innerHTML = '<p>Loading...</p>';
+            const city = document.getElementById('city').value.trim();
+
+            if (!city) {
+                alert('Please enter a city name');
+                return;
+            }
+
+            const apiKey = 'eb5e84bbebd6048d9732ccc35ddf3ca9' //''; // Replace with your OpenWeather API key
+            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+
+            try {
+                // Fetch weather data
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Prepare data for ML model
+                    const modelData = {
+                        temperature_2m: data.main.temp,
+                        relative_humidity_2m: data.main.humidity,
+                        precipitation: data.rain ? data.rain['1h'] || 0 : 0
+                    };
+
+                    try {
+                        // Send data to your local Flask server
+                        // Replace with your actual Flask server URL (localhost or ngrok)
+                        const flaskUrl = 'http://localhost:5000/predict';
+                        const predictionResponse = await fetch(flaskUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(modelData)
+                        });
+
+                        if (!predictionResponse.ok) {
+                            throw new Error('ML model prediction failed');
+                        }
+
+                        const predictionData = await predictionResponse.json();
+
+                        // Determine safety level class
+                        let safetyClass = '';
+                        switch (predictionData.condition) {
+                            case 'Safe':
+                                safetyClass = 'safe';
+                                break;
+                            case 'Moderately Safe':
+                                safetyClass = 'moderate';
+                                break;
+                            case 'Caution':
+                                safetyClass = 'caution';
+                                break;
+                            case 'Unsafe':
+                                safetyClass = 'unsafe';
+                                break;
+                        }
+
+                        // Display weather and prediction information
+                        weatherInfo.innerHTML = `
+                            <h2>${data.name}, ${data.sys.country}</h2>
+                            <p>Temperature: ${data.main.temp}°C</p>
+                            <p>Weather: ${data.weather[0].description}</p>
+                            <p>Humidity: ${data.main.humidity}%</p>
+                            <p>Wind Speed: ${data.wind.speed} m/s</p>
+                            <p>Precipitation: ${modelData.precipitation} mm</p>
+                            <div class="safety-level ${safetyClass}">
+                                Safety Condition: ${predictionData.condition}
+                            </div>
+                            <p>Prediction Confidence: ${(predictionData.confidence * 100).toFixed(2)}%</p>
+                        `;
+                    } catch (mlError) {
+                        console.error('ML Model Error:', mlError);
+                        weatherInfo.innerHTML = `
+                            <h2>${data.name}, ${data.sys.country}</h2>
+                            <p>Temperature: ${data.main.temp}°C</p>
+                            <p>Humidity: ${data.main.humidity}%</p>
+                            <p>Weather: ${data.weather[0].description}</p>
+                            <p class="error">ML Prediction unavailable: ${mlError.message}</p>
+                        `;
+                    }
+                } else {
+                    weatherInfo.innerHTML = '<p class="error">City not found</p>';
+                }
+            } catch (error) {
+                console.error('Weather API Error:', error);
+                weatherInfo.innerHTML = `<p class="error">Error fetching weather data: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
